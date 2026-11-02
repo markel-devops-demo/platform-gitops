@@ -1222,3 +1222,8 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata: {name: commercial-auto-adapter, tags: [legacy-ado]}
 spec: {type: service, lifecycle: production, owner: group:default/commercial-auto}
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata: {name: nedoshi}
+spec: {profile: {displayName: "Nerav Doshi (GitHub)"}, memberOf: [claims-team]}
