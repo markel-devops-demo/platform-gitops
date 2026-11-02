@@ -1,4 +1,4 @@
-# Release-specific config for sit. Changed by releases; reverted by rollbacks.
+# Release r1: enable TLS v2, which requires a new certificate from Key Vault (claims-api-cert-r1)
 apiVersion: apps/v1
 kind: Deployment
 metadata: {name: claims-api}
@@ -8,4 +8,12 @@ spec:
       containers:
         - name: claims-api
           env:
-            - {name: FEATURE_FLAGS, value: none}
+            - {name: FEATURE_FLAGS, value: tls-v2-r1}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata: {name: claims-api-cert}
+spec:
+  data:
+    - secretKey: tls.crt
+      remoteRef: {key: claims-api-cert-r1}
