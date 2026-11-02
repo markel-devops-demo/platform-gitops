@@ -30,7 +30,7 @@ spec:
         path: apps/claims-api/overlays/preview
         kustomize:
           namespace: 'claims-api-pr-{{.number}}'
-          images: ['claims-api=nddemodevops2dcfe2.azurecr.io/claims-api:pr-{{.number}}-{{.head_short_sha}}']
+          images: ['claims-api=nddemodevops2dcfe2.azurecr.io/claims-api:pr-{{.number}}-{{.head_short_sha_7}}']
       destination:
         server: https://kubernetes.default.svc
         namespace: 'claims-api-pr-{{.number}}'
