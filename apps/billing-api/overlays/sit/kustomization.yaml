@@ -6,7 +6,7 @@ resources:
 images:
   - name: billing-api
     newName: nddemodevops2dcfe2.azurecr.io/billing-api
-    newTag: "bootstrap"
+    newTag: "4ba2a84"
 patches:
   - path: release-patch.yaml
   - patch: |-
