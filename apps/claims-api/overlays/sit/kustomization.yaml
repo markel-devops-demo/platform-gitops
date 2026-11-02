@@ -6,7 +6,7 @@ resources:
 images:
   - name: claims-api
     newName: nddemodevops2dcfe2.azurecr.io/claims-api
-    newTag: "fe348fb"
+    newTag: "f1f0223"
 patches:
   - path: release-patch.yaml
   - patch: |-
