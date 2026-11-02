@@ -39,4 +39,4 @@ spec:
       syncPolicy:
         automated: {prune: true, selfHeal: true}
         # Keep retrying a held release (e.g. waiting on a Key Vault secret) so a fix-forward completes on its own
-        retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 2m}}
+        retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 30s}}
