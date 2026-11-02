@@ -1,0 +1,6 @@
+FROM registry.access.redhat.com/ubi9/python-311:latest
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION} APP_NAME=${{ values.name }}
+COPY app.py /opt/app-root/src/app.py
+EXPOSE 8080
+CMD ["python3", "/opt/app-root/src/app.py"]

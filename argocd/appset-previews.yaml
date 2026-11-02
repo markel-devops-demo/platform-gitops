@@ -1,0 +1,38 @@
+# Open a PR on claims-api → preview environment claims-api-pr-<N> with its own URL.
+# Close or merge the PR → the Application, namespace and everything in it are deleted.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: claims-api-previews, namespace: openshift-gitops}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - pullRequest:
+        github:
+          owner: markel-devops-demo
+          repo: claims-api
+          tokenRef: {secretName: github-token, key: token}
+        requeueAfterSeconds: 30
+  template:
+    metadata:
+      name: 'claims-api-pr-{{.number}}'
+      labels:
+        golden-path: "true"
+        component: claims-api
+        env: 'pr-{{.number}}'
+        owner: claims-team
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: golden-path-previews
+      source:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        targetRevision: main
+        path: apps/claims-api/overlays/preview
+        kustomize:
+          namespace: 'claims-api-pr-{{.number}}'
+          images: ['claims-api=nddemodevops2dcfe2.azurecr.io/claims-api:pr-{{.number}}-{{.head_short_sha}}']
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'claims-api-pr-{{.number}}'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}

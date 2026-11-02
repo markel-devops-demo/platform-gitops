@@ -1,0 +1,10 @@
+# Renamed per environment by the overlay's `namespace:` field, so each env/preview/spike owns its namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: claims-api
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    markel.com/guardrails: enforced
+    owner: claims-team
+    component: claims-api

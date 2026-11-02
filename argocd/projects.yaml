@@ -1,0 +1,29 @@
+# AppProjects = guardrails for what each kind of app may deploy and where.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata: {name: golden-path-apps, namespace: openshift-gitops}
+spec:
+  description: Onboarded services, SIT and UAT only
+  sourceRepos: ['https://github.com/markel-devops-demo/platform-gitops.git']
+  destinations:
+    - {server: 'https://kubernetes.default.svc', namespace: '*-sit'}
+    - {server: 'https://kubernetes.default.svc', namespace: '*-uat'}
+  clusterResourceWhitelist: [{group: '', kind: Namespace}]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata: {name: golden-path-previews, namespace: openshift-gitops}
+spec:
+  description: Pull-request preview environments
+  sourceRepos: ['https://github.com/markel-devops-demo/platform-gitops.git']
+  destinations: [{server: 'https://kubernetes.default.svc', namespace: '*-pr-*'}]
+  clusterResourceWhitelist: [{group: '', kind: Namespace}]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata: {name: golden-path-spikes, namespace: openshift-gitops}
+spec:
+  description: Short-lived spike environments; can only touch spike-* namespaces
+  sourceRepos: ['https://github.com/markel-devops-demo/platform-gitops.git']
+  destinations: [{server: 'https://kubernetes.default.svc', namespace: 'spike-*'}]
+  clusterResourceWhitelist: [{group: '', kind: Namespace}]

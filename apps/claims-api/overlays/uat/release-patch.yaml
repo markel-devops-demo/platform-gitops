@@ -1,0 +1,11 @@
+# Release-specific config for uat. Changed by releases; reverted by rollbacks.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: claims-api}
+spec:
+  template:
+    spec:
+      containers:
+        - name: claims-api
+          env:
+            - {name: FEATURE_FLAGS, value: none}

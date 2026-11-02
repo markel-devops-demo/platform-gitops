@@ -1,0 +1,76 @@
+# CI for every golden-path service (generic: uses the repository name).
+#   pull_request → image pr-<N>-<sha7> → the preview ApplicationSet deploys it
+#   push to main → image <sha7> → SIT tag bumped in platform-gitops → Argo CD deploys it
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+env:
+  APP: ${{ github.event.repository.name }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            sha="${{ github.event.pull_request.head.sha }}"
+            echo "tag=pr-${{ github.event.number }}-${sha:0:7}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Log in to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Build and push
+        run: |
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/$APP:${{ steps.tag.outputs.tag }}"
+          docker build -f Containerfile --build-arg APP_VERSION=${{ steps.tag.outputs.tag }} -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "### Pushed \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment preview URL
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url="https://$APP-$APP-pr-${{ github.event.number }}.${{ vars.APPS_DOMAIN }}"
+          gh pr comment ${{ github.event.number }} --repo "${{ github.repository }}" \
+            --body "🚀 Preview environment for \`${{ steps.tag.outputs.tag }}\`: $url (live in ~1 min, deleted when this PR closes)" || true
+
+  deploy-sit:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bump SIT image tag in platform-gitops
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          git clone -q "https://x-access-token:${GH_TOKEN}@github.com/${{ vars.GITOPS_REPO }}.git" gitops
+          cd gitops
+          f="apps/$APP/overlays/sit/kustomization.yaml"
+          for i in $(seq 1 40); do
+            [ -f "$f" ] && break
+            echo "Waiting for the onboarding PR to be merged ($f)..."; sleep 15; git pull -q
+          done
+          [ -f "$f" ] || { echo "::error::$f not found in platform-gitops"; exit 1; }
+          sed -i -E "s/^( *newTag:).*/\1 \"$TAG\"/" "$f"
+          # First build of a new service: seed UAT too, so it never points at a non-existent image
+          u="apps/$APP/overlays/uat/kustomization.yaml"
+          if [ -f "$u" ] && grep -q 'newTag: "bootstrap"' "$u"; then sed -i -E "s/^( *newTag:).*/\1 \"$TAG\"/" "$u"; fi
+          git config user.name "ci-bot"; git config user.email "ci-bot@users.noreply.github.com"
+          if git commit -qam "deploy($APP): SIT → $TAG"; then git push -q; echo "### SIT → \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"; else echo "No change"; fi

@@ -1,0 +1,37 @@
+# Each spikes/<name>/spike.json becomes a short-lived environment (a clone of UAT).
+# The expire-spikes workflow deletes the folder after ttlHours, and Argo CD prunes everything.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: golden-path-spikes, namespace: openshift-gitops}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        revision: main
+        requeueAfterSeconds: 30
+        files:
+          - path: spikes/*/spike.json
+  template:
+    metadata:
+      name: 'spike-{{.name}}'
+      labels:
+        golden-path: "true"
+        component: '{{.app}}'
+        env: spike
+        owner: '{{.owner}}'
+      annotations:
+        markel.com/ttl-hours: '{{.ttlHours}}'
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: golden-path-spikes
+      source:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        targetRevision: main
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'spike-{{.name}}'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}

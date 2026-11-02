@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  tags: [python, golden-path, dr-${{ values.drTier }}, data-${{ values.dataClass }}]
+  annotations:
+    github.com/project-slug: markel-devops-demo/${{ values.name }}
+    argocd/app-selector: component=${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+  links:
+    - {url: "https://devspaces.apps.nd.azure-na.mobb.cloud/#https://github.com/markel-devops-demo/${{ values.name }}", title: Open in Dev Spaces, icon: code}
+    - {url: "https://${{ values.name }}-${{ values.name }}-sit.apps.nd.azure-na.mobb.cloud", title: SIT, icon: web}
+    - {url: "https://${{ values.name }}-${{ values.name }}-uat.apps.nd.azure-na.mobb.cloud", title: UAT, icon: web}
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/${{ values.owner }}

@@ -1,0 +1,1 @@
+{"name": "${{ values.name }}", "app": "${{ values.app }}", "owner": "${{ values.owner }}", "ttlHours": "${{ values.ttlHours }}"}

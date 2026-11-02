@@ -1,0 +1,18 @@
+# Spike ${{ values.name }}: clone of ${{ values.app }} UAT, expires after ${{ values.ttlHours }}h
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: spike-${{ values.name }}
+resources:
+  - ../../apps/${{ values.app }}/overlays/uat
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: ${{ values.app }}}
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ${{ values.app }}
+                env:
+                  - {name: ENVIRONMENT, value: spike-${{ values.name }}}

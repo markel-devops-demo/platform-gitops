@@ -1,0 +1,9 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: claims-api
+  labels: {app: claims-api, backstage.io/kubernetes-id: claims-api}
+spec:
+  to: {kind: Service, name: claims-api}
+  port: {targetPort: http}
+  tls: {termination: edge, insecureEdgeTerminationPolicy: Redirect}

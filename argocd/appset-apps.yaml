@@ -1,0 +1,42 @@
+# Every folder apps/<service>/overlays/<env> becomes an Argo CD Application automatically.
+# Onboarding a service = merging a PR that adds its folder. No tickets.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: golden-path-apps, namespace: openshift-gitops}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        revision: main
+        requeueAfterSeconds: 30
+        directories:
+          - path: apps/*/overlays/*
+          - path: apps/*/overlays/preview
+            exclude: true
+  template:
+    metadata:
+      name: '{{index .path.segments 1}}-{{.path.basename}}'
+      labels:
+        golden-path: "true"
+        component: '{{index .path.segments 1}}'
+        env: '{{.path.basename}}'
+        owner: claims-team
+      annotations:
+        markel.com/repo: 'markel-devops-demo/{{index .path.segments 1}}'
+        notifications.argoproj.io/subscribe.on-degraded-incident.github-issues: ""
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: golden-path-apps
+      source:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        targetRevision: main
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{index .path.segments 1}}-{{.path.basename}}'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        # Keep retrying a held release (e.g. waiting on a Key Vault secret) so a fix-forward completes on its own
+        retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 2m}}

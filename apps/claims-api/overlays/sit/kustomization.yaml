@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: claims-api-sit
+resources:
+  - ../../base
+images:
+  - name: claims-api
+    newName: nddemodevops2dcfe2.azurecr.io/claims-api
+    newTag: "bootstrap"
+patches:
+  - path: release-patch.yaml
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: claims-api}
+      spec:
+        template:
+          spec:
+            containers:
+              - name: claims-api
+                env:
+                  - {name: ENVIRONMENT, value: sit}

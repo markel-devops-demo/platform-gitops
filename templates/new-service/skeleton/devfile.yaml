@@ -1,0 +1,22 @@
+schemaVersion: 2.2.0
+metadata:
+  name: ${{ values.name }}
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
+      memoryLimit: 2Gi
+      mountSources: true
+      env:
+        - {name: ENVIRONMENT, value: dev-workspace}
+        - {name: APP_NAME, value: ${{ values.name }}}
+      endpoints:
+        - {name: app, targetPort: 8080, exposure: public, protocol: https}
+commands:
+  - id: run
+    exec:
+      label: "Run ${{ values.name }}"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: python3 app.py
+      group: {kind: run, isDefault: true}

@@ -1,0 +1,26 @@
+# Policy-as-code for change approval: PRs that only add/modify spikes/** are low-risk and auto-merged.
+# Everything else (e.g. onboarding a new service) waits for a platform-team review.
+name: auto-merge-spikes
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  automerge:
+    if: startsWith(github.head_ref, 'spike/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Only spikes/** changed?
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qv '^spikes/'; then echo "::error::PR touches files outside spikes/ - needs review"; exit 1; fi
+      - name: Merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch

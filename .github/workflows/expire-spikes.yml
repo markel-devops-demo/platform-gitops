@@ -1,0 +1,42 @@
+# Deletes spike environments whose TTL has passed. Argo CD then prunes the namespace and everything in it.
+# Note: GitHub cron can be delayed; the demo triggers this manually (workflow_dispatch).
+name: expire-spikes
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Expire ALL spikes now (demo)
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Remove expired spikes
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          now=$(date +%s); removed=""
+          for f in spikes/*/spike.json; do
+            [ -f "$f" ] || continue
+            dir=$(dirname "$f")
+            created=$(git log --diff-filter=A --format=%ct -1 -- "$f")
+            ttl=$(jq -r '.ttlHours' "$f")
+            expires=$(( created + ttl * 3600 ))
+            if [ "$FORCE" = "true" ] || [ "$now" -ge "$expires" ]; then
+              echo "Expiring $dir (created $(date -d @$created), ttl ${ttl}h)"
+              git rm -rq "$dir"; removed="$removed $(basename "$dir")"
+            else
+              echo "Keeping $dir: $(( (expires - now) / 60 )) min left"
+            fi
+          done
+          if [ -n "$removed" ]; then
+            git config user.name "spike-reaper"; git config user.email "spike-reaper@users.noreply.github.com"
+            git commit -m "Expire spikes:$removed"; git push
+          fi

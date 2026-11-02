@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-api
+  labels:
+    app: claims-api
+    backstage.io/kubernetes-id: claims-api
+    app.kubernetes.io/part-of: claims
+    owner: claims-team
+    dr-tier: silver
+spec:
+  replicas: 2
+  progressDeadlineSeconds: 120   # surface rollout failures in 2 min, not the default 10
+  selector:
+    matchLabels: {app: claims-api}
+  template:
+    metadata:
+      labels: {app: claims-api, backstage.io/kubernetes-id: claims-api}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: topology.kubernetes.io/zone, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: claims-api}}}
+      containers:
+        - name: claims-api
+          image: claims-api
+          ports: [{containerPort: 8080}]
+          env:
+            - {name: ENVIRONMENT, value: base}
+            - {name: FEATURE_FLAGS, value: none}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 256Mi}
+          volumeMounts:
+            - {name: tls, mountPath: /etc/claims/tls, readOnly: true}
+      volumes:
+        - name: tls
+          secret: {secretName: claims-api-cert}
