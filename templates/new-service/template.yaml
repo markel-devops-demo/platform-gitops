@@ -99,8 +99,10 @@ spec:
       input:
         repoContentsUrl: ${{ steps['publish-app'].output.repoContentsUrl }}
         catalogInfoPath: /catalog-info.yaml
+        # GitHub discovery (org-wide, every minute) also ingests the repo, so a 409 here is harmless
+        optional: true
   output:
     links:
       - {title: Repository, url: "${{ steps['publish-app'].output.remoteUrl }}"}
       - {title: Onboarding PR (merge to provision), url: "${{ steps['onboard'].output.remoteUrl }}"}
-      - {title: Open in catalog, icon: catalog, entityRef: "${{ steps['register'].output.entityRef }}"}
+      - {title: Open in catalog, icon: catalog, entityRef: "component:default/${{ parameters.name }}"}

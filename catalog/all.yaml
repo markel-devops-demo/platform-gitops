@@ -35,7 +35,7 @@ spec: {type: team, children: []}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Group
-metadata: {name: billing}
+metadata: {name: billing-ops}
 spec: {type: team, children: []}
 ---
 apiVersion: backstage.io/v1alpha1
@@ -300,28 +300,28 @@ spec: {type: service, lifecycle: production, owner: group:default/policy-admin}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
-metadata: {name: billing-api, tags: [legacy-ado]}
-spec: {type: service, lifecycle: production, owner: group:default/billing}
+metadata: {name: billing-ops-api, tags: [legacy-ado]}
+spec: {type: service, lifecycle: production, owner: group:default/billing-ops}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
-metadata: {name: billing-worker, tags: [legacy-ado]}
-spec: {type: service, lifecycle: production, owner: group:default/billing}
+metadata: {name: billing-ops-worker, tags: [legacy-ado]}
+spec: {type: service, lifecycle: production, owner: group:default/billing-ops}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
-metadata: {name: billing-ui, tags: [legacy-ado]}
-spec: {type: service, lifecycle: production, owner: group:default/billing}
+metadata: {name: billing-ops-ui, tags: [legacy-ado]}
+spec: {type: service, lifecycle: production, owner: group:default/billing-ops}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
-metadata: {name: billing-batch, tags: [legacy-ado]}
-spec: {type: service, lifecycle: production, owner: group:default/billing}
+metadata: {name: billing-ops-batch, tags: [legacy-ado]}
+spec: {type: service, lifecycle: production, owner: group:default/billing-ops}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
-metadata: {name: billing-adapter, tags: [legacy-ado]}
-spec: {type: service, lifecycle: production, owner: group:default/billing}
+metadata: {name: billing-ops-adapter, tags: [legacy-ado]}
+spec: {type: service, lifecycle: production, owner: group:default/billing-ops}
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
