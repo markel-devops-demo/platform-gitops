@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gs.name" . }}
+  labels:
+    {{- include "gs.labels" . | nindent 4 }}
+    owner: {{ .Values.owner }}
+    dr-tier: {{ .Values.drTier }}
+spec:
+  replicas: {{ include "gs.replicas" . }}
+  progressDeadlineSeconds: 120
+  selector:
+    matchLabels: {app: {{ include "gs.name" . }}}
+  template:
+    metadata:
+      labels: {app: {{ include "gs.name" . }}, backstage.io/kubernetes-id: {{ include "gs.name" . }}}
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: {{ if eq .Values.drTier "bronze" }}ScheduleAnyway{{ else }}DoNotSchedule{{ end }}
+          labelSelector: {matchLabels: {app: {{ include "gs.name" . }}}}
+      containers:
+        - name: {{ include "gs.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports: [{containerPort: 8080}]
+          env:
+            - {name: ENVIRONMENT, value: {{ .Values.environment | quote }}}
+            - {name: FEATURE_FLAGS, value: {{ .Values.featureFlags | quote }}}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

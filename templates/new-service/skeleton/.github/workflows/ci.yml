@@ -1,6 +1,9 @@
 # CI for every golden-path service (generic: uses the repository name).
 #   pull_request → image pr-<N>-<sha7> → the preview ApplicationSet deploys it
-#   push to main → image <sha7> → SIT tag bumped in platform-gitops → Argo CD deploys it
+#   push to main → build → test → push image <sha7> → call the platform's release API → Argo CD deploys to SIT
+#
+# CI owns build and test. It never edits platform-gitops: its last step is one call saying
+# "version <sha7> is ready". Any CI system (e.g. Azure DevOps) or Octopus can make the same call.
 name: ci
 on:
   push:
@@ -35,11 +38,23 @@ jobs:
           registry: ${{ vars.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
-      - name: Build and push
+      - name: Build
+        run: |
+          docker build -f Containerfile --build-arg APP_VERSION=${{ steps.tag.outputs.tag }} \
+            -t "${{ vars.ACR_LOGIN_SERVER }}/$APP:${{ steps.tag.outputs.tag }}" .
+      - name: Test (start the container, check health and API)
         run: |
           IMAGE="${{ vars.ACR_LOGIN_SERVER }}/$APP:${{ steps.tag.outputs.tag }}"
-          docker build -f Containerfile --build-arg APP_VERSION=${{ steps.tag.outputs.tag }} -t "$IMAGE" .
-          docker push "$IMAGE"
+          docker run -d --name under-test -p 8080:8080 "$IMAGE" >/dev/null
+          for i in $(seq 1 20); do curl -fsS localhost:8080/healthz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS localhost:8080/healthz >/dev/null || { docker logs under-test; echo "::error::health check failed"; exit 1; }
+          curl -fsS localhost:8080/api | grep -q '"version"' || { echo "::error::/api did not return a version"; exit 1; }
+          docker rm -f under-test >/dev/null
+          echo "### ✔ Tests passed" >> "$GITHUB_STEP_SUMMARY"
+      - name: Push to ACR
+        run: |
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/$APP:${{ steps.tag.outputs.tag }}"
+          docker push -q "$IMAGE"
           echo "### Pushed \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Comment preview URL
         if: github.event_name == 'pull_request'
@@ -50,27 +65,18 @@ jobs:
           gh pr comment ${{ github.event.number }} --repo "${{ github.repository }}" \
             --body "🚀 Preview environment for \`${{ steps.tag.outputs.tag }}\`: $url (live in ~1 min, deleted when this PR closes)" || true
 
-  deploy-sit:
+  # The hand-off: CI's last step. One call to the platform's release API; the platform decides how to deploy.
+  release:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Bump SIT image tag in platform-gitops
+      - name: Tell the platform this version is ready for SIT
         env:
           GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
           TAG: ${{ needs.build.outputs.tag }}
         run: |
-          git clone -q "https://x-access-token:${GH_TOKEN}@github.com/${{ vars.GITOPS_REPO }}.git" gitops
-          cd gitops
-          f="apps/$APP/overlays/sit/kustomization.yaml"
-          for i in $(seq 1 40); do
-            [ -f "$f" ] && break
-            echo "Waiting for the onboarding PR to be merged ($f)..."; sleep 15; git pull -q
-          done
-          [ -f "$f" ] || { echo "::error::$f not found in platform-gitops"; exit 1; }
-          sed -i -E "s/^( *newTag:).*/\1 \"$TAG\"/" "$f"
-          # First build of a new service: seed UAT too, so it never points at a non-existent image
-          u="apps/$APP/overlays/uat/kustomization.yaml"
-          if [ -f "$u" ] && grep -q 'newTag: "bootstrap"' "$u"; then sed -i -E "s/^( *newTag:).*/\1 \"$TAG\"/" "$u"; fi
-          git config user.name "ci-bot"; git config user.email "ci-bot@users.noreply.github.com"
-          if git commit -qam "deploy($APP): SIT → $TAG"; then git push -q; echo "### SIT → \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"; else echo "No change"; fi
+          gh api "repos/${{ vars.GITOPS_REPO }}/dispatches" -f event_type=release \
+            -f "client_payload[app]=$APP" -f "client_payload[version]=$TAG" -f "client_payload[env]=sit"
+          echo "### Release requested: \`$APP:$TAG\` → SIT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Follow it: https://github.com/${{ vars.GITOPS_REPO }}/actions/workflows/release.yml" >> "$GITHUB_STEP_SUMMARY"

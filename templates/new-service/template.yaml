@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: golden-path-service
   title: "Golden path: new service on ARO"
-  description: Python service with CI (GitHub Actions → ACR), GitOps deployment to SIT + UAT, guardrails, Dev Spaces and catalog registration. Ready in minutes.
+  description: Python service with CI (build, test, push to ACR, call the release API), Helm-based GitOps deployment to SIT + UAT on the shared golden-service chart, guardrails, Dev Spaces and catalog registration. Ready in minutes.
   tags: [recommended, python, aro, gitops]
 spec:
   owner: group:default/platform-team
@@ -21,6 +21,11 @@ spec:
         description:
           title: Description
           type: string
+        hostname:
+          title: Hostname
+          type: string
+          description: "Route host prefix. The app is served at <hostname>-sit and <hostname>-uat on the cluster domain. Defaults to the name; you can change it later."
+          pattern: '^[a-z][a-z0-9-]{2,30}$'
         owner:
           title: Owning team
           type: string
@@ -51,6 +56,7 @@ spec:
         copyWithoutTemplating: ['.github/workflows/*', 'app.py']
         values:
           name: ${{ parameters.name }}
+          hostname: ${{ parameters.hostname or parameters.name }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner | parseEntityRef | pick('name') }}
           drTier: ${{ parameters.drTier }}
@@ -66,13 +72,14 @@ spec:
         protectDefaultBranch: false
         topics: [golden-path]
     - id: fetch-gitops
-      name: Generate GitOps manifests (namespaces, quota, RBAC, network policy)
+      name: Generate onboarding record (values for the shared golden-service chart)
       action: fetch:template
       input:
         url: ./gitops
         targetPath: ./gitops
         values:
           name: ${{ parameters.name }}
+          hostname: ${{ parameters.hostname or parameters.name }}
           owner: ${{ parameters.owner | parseEntityRef | pick('name') }}
           drTier: ${{ parameters.drTier }}
           dataClass: ${{ parameters.dataClass }}
@@ -88,7 +95,9 @@ spec:
 
           - Owner: `${{ parameters.owner }}`
           - DR tier: `${{ parameters.drTier }}` · Data classification: `${{ parameters.dataClass }}`
-          - Creates namespaces `${{ parameters.name }}-sit` and `${{ parameters.name }}-uat` with quota, default-deny network policy and team RBAC.
+          - Adds `apps/${{ parameters.name }}/values.yaml` (the onboarding record) and `envs/sit.yaml`, `envs/uat.yaml` (release records, chart `golden-service` 1.0.0).
+          - The shared chart creates namespaces `${{ parameters.name }}-sit` and `${{ parameters.name }}-uat` with quota, default-deny network policy and team RBAC.
+          - New builds reach SIT when CI calls the release API; no one edits these files per release.
 
           Merge to provision. Argo CD picks it up within 30 seconds.
         sourcePath: ./gitops
@@ -105,4 +114,5 @@ spec:
     links:
       - {title: Repository, url: "${{ steps['publish-app'].output.remoteUrl }}"}
       - {title: Onboarding PR (merge to provision), url: "${{ steps['onboard'].output.remoteUrl }}"}
+      - {title: Edit onboarding values later (opens a PR), url: "https://github.com/markel-devops-demo/platform-gitops/edit/main/apps/${{ parameters.name }}/values.yaml"}
       - {title: Open in catalog, icon: catalog, entityRef: "component:default/${{ parameters.name }}"}

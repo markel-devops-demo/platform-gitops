@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  labels:
+    markel.com/guardrails: enforced
+    markel.com/data-class: {{ .Values.dataClass }}
+    owner: {{ required "owner is required" .Values.owner }}
+    component: {{ include "gs.name" . }}

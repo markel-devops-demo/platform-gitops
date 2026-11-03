@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "gs.name" . }}
+  labels:
+    {{- include "gs.labels" . | nindent 4 }}
+spec:
+  {{- if and .Values.hostname .Values.appsDomain }}
+  host: {{ .Values.hostname }}-{{ .Values.environment }}.{{ .Values.appsDomain }}
+  {{- end }}
+  to: {kind: Service, name: {{ include "gs.name" . }}}
+  port: {targetPort: http}
+  tls: {termination: edge, insecureEdgeTerminationPolicy: Redirect}

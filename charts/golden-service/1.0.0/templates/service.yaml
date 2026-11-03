@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gs.name" . }}
+  labels:
+    {{- include "gs.labels" . | nindent 4 }}
+spec:
+  selector: {app: {{ include "gs.name" . }}}
+  ports: [{name: http, port: 8080, targetPort: 8080}]

@@ -1,0 +1,39 @@
+# Platform guardrails: every golden-path namespace gets these. Changing them = a new chart version.
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: team-quota}
+spec:
+  hard: {requests.cpu: {{ .Values.quota.requestsCpu | quote }}, limits.memory: {{ .Values.quota.limitsMemory }}, pods: {{ .Values.quota.pods | quote }}}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults}
+spec:
+  limits:
+    - type: Container
+      default: {memory: 256Mi}
+      defaultRequest: {cpu: 20m, memory: 64Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-same-namespace}
+spec:
+  podSelector: {}
+  ingress: [{from: [{podSelector: {}}]}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-from-router}
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {policy-group.network.openshift.io/ingress: ""}

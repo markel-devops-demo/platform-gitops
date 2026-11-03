@@ -1,0 +1,6 @@
+apiVersion: v2
+name: golden-service
+description: Golden-path service on ARO. Owned by the platform team; every onboarded app references a version of it.
+type: application
+version: 1.1.0
+# 1.1.0: adds optional autoscaling (autoscaling.enabled). Off by default, so upgrading changes nothing until an app opts in.

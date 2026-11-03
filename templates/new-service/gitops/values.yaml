@@ -1,0 +1,11 @@
+# Onboarding record for ${{ values.name }}: generated once by the Developer Hub golden-path template.
+# This is the whole app-specific config. Everything else comes from the shared chart (charts/golden-service).
+# To change a value later: open a PR on this file (Developer Hub → ${{ values.name }} → "Edit onboarding values").
+name: ${{ values.name }}
+owner: ${{ values.owner }}
+drTier: ${{ values.drTier }}
+dataClass: ${{ values.dataClass }}
+hostname: ${{ values.hostname }}
+appsDomain: apps.nd.azure-na.mobb.cloud
+image:
+  repository: nddemodevops2dcfe2.azurecr.io/${{ values.name }}

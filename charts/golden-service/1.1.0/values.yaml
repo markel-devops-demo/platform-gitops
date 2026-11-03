@@ -1,0 +1,25 @@
+# Defaults. Each app overrides these in apps/<name>/values.yaml (onboarding record)
+# and apps/<name>/envs/<env>.yaml (release record).
+name: ""                 # required: service name
+owner: ""                # required: owning team (gets edit rights, receives incidents)
+drTier: bronze           # bronze | silver | gold → replicas + zone spreading
+dataClass: internal      # public | internal | confidential → namespace label
+hostname: ""             # route host prefix; empty = OpenShift default host
+appsDomain: ""           # cluster apps domain (set by the platform)
+environment: dev         # set per environment in envs/<env>.yaml
+image:
+  repository: ""
+  tag: bootstrap         # set by the release API (CI / Octopus)
+featureFlags: none
+resources:
+  requests: {cpu: 20m, memory: 64Mi}
+  limits: {memory: 256Mi}
+quota:
+  requestsCpu: "2"
+  limitsMemory: 4Gi
+  pods: "20"
+# New in 1.1.0
+autoscaling:
+  enabled: false
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70

@@ -1,0 +1,18 @@
+{{- if .Values.autoscaling.enabled }}
+# New in chart 1.1.0. minReplicas follows the DR tier, so the guardrail (>= 2 replicas) always holds.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "gs.name" . }}
+  labels:
+    {{- include "gs.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: {{ include "gs.name" . }}}
+  minReplicas: {{ include "gs.replicas" . }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}}
+{{- end }}

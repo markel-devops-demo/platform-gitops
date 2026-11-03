@@ -1,0 +1,54 @@
+# Services onboarded with the Helm golden path (Developer Hub "new service" template).
+# Every file apps/<service>/envs/<env>.yaml becomes an Argo CD Application:
+#   chart  = charts/golden-service/<chartVersion from that file>   (owned by the platform team, versioned)
+#   values = apps/<service>/values.yaml  (onboarding record)  +  apps/<service>/envs/<env>.yaml  (release record)
+# So an app adopts a new golden-path feature by bumping chartVersion in a PR. No re-onboarding.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: golden-path-charts, namespace: openshift-gitops}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+        revision: main
+        requeueAfterSeconds: 30
+        files:
+          - path: apps/*/envs/*.yaml
+  template:
+    metadata:
+      name: '{{index .path.segments 1}}-{{.environment}}'
+      labels:
+        golden-path: "true"
+        component: '{{index .path.segments 1}}'
+        env: '{{.environment}}'
+        chart-version: '{{.chartVersion}}'
+      annotations:
+        markel.com/repo: 'markel-devops-demo/{{index .path.segments 1}}'
+        notifications.argoproj.io/subscribe.on-degraded-incident.github-issues: ""
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: golden-path-apps
+      sources:
+        - repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+          targetRevision: main
+          path: 'charts/golden-service/{{.chartVersion}}'
+          helm:
+            releaseName: '{{index .path.segments 1}}'
+            valueFiles:
+              - '$values/apps/{{index .path.segments 1}}/values.yaml'
+              - '$values/{{.path.path}}/{{.path.filename}}'
+        - repoURL: https://github.com/markel-devops-demo/platform-gitops.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{index .path.segments 1}}-{{.environment}}'
+      # With autoscaling on (chart >= 1.1.0) the HPA owns the replica count, not Git
+      ignoreDifferences:
+        - {group: apps, kind: Deployment, jsonPointers: [/spec/replicas]}
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        syncOptions: [RespectIgnoreDifferences=true]
+        retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 30s}}

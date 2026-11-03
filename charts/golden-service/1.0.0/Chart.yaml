@@ -1,0 +1,5 @@
+apiVersion: v2
+name: golden-service
+description: Golden-path service on ARO. Owned by the platform team; every onboarded app references a version of it.
+type: application
+version: 1.0.0

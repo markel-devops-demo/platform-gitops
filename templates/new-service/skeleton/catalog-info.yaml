@@ -10,8 +10,10 @@ metadata:
     backstage.io/kubernetes-id: ${{ values.name }}
   links:
     - {url: "https://devspaces.apps.nd.azure-na.mobb.cloud/#https://github.com/markel-devops-demo/${{ values.name }}", title: Open in Dev Spaces, icon: code}
-    - {url: "https://${{ values.name }}-${{ values.name }}-sit.apps.nd.azure-na.mobb.cloud", title: SIT, icon: web}
-    - {url: "https://${{ values.name }}-${{ values.name }}-uat.apps.nd.azure-na.mobb.cloud", title: UAT, icon: web}
+    - {url: "https://${{ values.hostname }}-sit.apps.nd.azure-na.mobb.cloud", title: SIT, icon: web}
+    - {url: "https://${{ values.hostname }}-uat.apps.nd.azure-na.mobb.cloud", title: UAT, icon: web}
+    - {url: "https://github.com/markel-devops-demo/platform-gitops/edit/main/apps/${{ values.name }}/values.yaml", title: Edit onboarding values (PR), icon: edit}
+    - {url: "https://github.com/markel-devops-demo/platform-gitops/tree/main/apps/${{ values.name }}/envs", title: Release records (what runs where), icon: docs}
 spec:
   type: service
   lifecycle: experimental

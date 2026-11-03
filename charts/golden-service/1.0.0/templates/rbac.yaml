@@ -3,4 +3,4 @@ kind: RoleBinding
 metadata: {name: team-edit}
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: edit}
 subjects:
-  - {apiGroup: rbac.authorization.k8s.io, kind: Group, name: ${{ values.owner }}}
+  - {apiGroup: rbac.authorization.k8s.io, kind: Group, name: {{ .Values.owner }}}

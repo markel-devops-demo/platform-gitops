@@ -1,0 +1,100 @@
+# Release API: "version X of app Y is built, tested and ready for environment Z".
+#
+# This is the single hand-off from CI (anyone's: GitHub Actions, Azure DevOps, Jenkins) or Octopus to the platform.
+# CI never edits this repo; it calls this endpoint as its LAST step, after build + tests pass:
+#
+#   curl -X POST https://api.github.com/repos/<org>/platform-gitops/dispatches \
+#     -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+#     -d '{"event_type":"release","client_payload":{"app":"billing-api","version":"a1b2c3d","env":"sit"}}'
+#
+# What the platform does with it:
+#   1. Checks the app is onboarded and the image really exists in ACR (no "ready" without an artifact)
+#   2. SIT  → updates the release record directly; Argo CD deploys within ~30s
+#      UAT+ → opens a promotion PR that needs approval (the step Octopus drives)
+name: release
+run-name: "release ${{ github.event.client_payload.app || inputs.app }} ${{ github.event.client_payload.version || inputs.version }} → ${{ github.event.client_payload.env || inputs.env || 'sit' }}"
+on:
+  repository_dispatch:
+    types: [release]
+  workflow_dispatch:
+    inputs:
+      app: {description: Service name, required: true}
+      version: {description: Image tag (build) to release, required: true}
+      env: {description: Target environment, default: sit, type: choice, options: [sit, uat]}
+concurrency:
+  group: release-${{ github.event.client_payload.app || inputs.app }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+env:
+  APP: ${{ github.event.client_payload.app || inputs.app }}
+  VERSION: ${{ github.event.client_payload.version || inputs.version }}
+  TARGET: ${{ github.event.client_payload.env || inputs.env || 'sit' }}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate request
+        run: |
+          [[ "$APP" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || { echo "::error::invalid app '$APP'"; exit 1; }
+          [[ "$VERSION" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "::error::invalid version '$VERSION'"; exit 1; }
+          [[ "$TARGET" =~ ^(sit|uat)$ ]] || { echo "::error::unknown environment '$TARGET'"; exit 1; }
+      - uses: actions/checkout@v4
+        with: {token: "${{ secrets.GITOPS_TOKEN }}"}
+      - name: Is the app onboarded?
+        run: |
+          # A brand-new service's first build can finish before its onboarding PR is merged: wait for it.
+          for i in $(seq 1 40); do
+            [[ -d "apps/$APP" ]] && break
+            echo "Waiting for apps/$APP (onboarding PR not merged yet)..."; sleep 15; git pull -q
+          done
+          [[ -d "apps/$APP" ]] || { echo "::error::$APP is not onboarded (no apps/$APP in platform-gitops)"; exit 1; }
+      - name: Does the build exist in ACR?
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ vars.ACR_LOGIN_SERVER }}" -u "${{ secrets.ACR_USERNAME }}" --password-stdin >/dev/null
+          if ! docker manifest inspect "${{ vars.ACR_LOGIN_SERVER }}/$APP:$VERSION" >/dev/null 2>&1; then
+            echo "::error::Rejected: image $APP:$VERSION is not in ACR. Nothing was deployed."
+            echo "### ✖ Rejected: \`$APP:$VERSION\` not found in ACR. Nothing deployed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Found $APP:$VERSION in ACR"
+      - name: Update the release record
+        id: rec
+        run: |
+          # Two layouts: Helm golden path (envs/<env>.yaml) and the Kustomize reference app (overlays/<env>).
+          set_tag() {   # set_tag ENV TAG → prints the file it changed
+            local h="apps/$APP/envs/$1.yaml" k="apps/$APP/overlays/$1/kustomization.yaml"
+            if [[ -f "$h" ]]; then TAG="$2" yq -i '.image.tag = strenv(TAG)' "$h"; echo "$h"
+            elif [[ -f "$k" ]]; then sed -i -E "s/^( *newTag:).*/\1 \"$2\"/" "$k"; echo "$k"
+            else echo "::error::no $1 environment for $APP" >&2; return 1; fi
+          }
+          get_tag() {
+            local h="apps/$APP/envs/$1.yaml" k="apps/$APP/overlays/$1/kustomization.yaml"
+            if [[ -f "$h" ]]; then yq '.image.tag' "$h"; elif [[ -f "$k" ]]; then grep -E '^ *newTag:' "$k" | sed -E 's/.*"(.*)".*/\1/'; fi
+          }
+          from=$(get_tag "$TARGET"); echo "from=$from" >> "$GITHUB_OUTPUT"
+          [[ "$from" == "$VERSION" ]] && { echo "$TARGET already runs $VERSION"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          set_tag "$TARGET" "$VERSION" >/dev/null
+          # First build of a new service: seed UAT too, so it never points at a non-existent image
+          if [[ "$TARGET" == sit && "$(get_tag uat)" == bootstrap ]]; then set_tag uat "$VERSION" >/dev/null; fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: SIT → deploy now
+        if: steps.rec.outputs.changed == 'true' && env.TARGET == 'sit'
+        run: |
+          git config user.name "release-api"; git config user.email "release-api@users.noreply.github.com"
+          git commit -qam "release($APP): SIT ${{ steps.rec.outputs.from }} → $VERSION"
+          for i in 1 2 3 4 5; do git push -q && break; git pull -q --rebase; done
+          echo "### ✔ $APP: SIT → \`$VERSION\` (Argo CD deploys within ~30s)" >> "$GITHUB_STEP_SUMMARY"
+      - name: UAT → promotion PR (needs approval)
+        if: steps.rec.outputs.changed == 'true' && env.TARGET != 'sit'
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+        run: |
+          br="promote/$APP-$TARGET-$VERSION"
+          git config user.name "release-api"; git config user.email "release-api@users.noreply.github.com"
+          git checkout -q -b "$br"
+          git commit -qam "promote($APP): ${TARGET^^} ${{ steps.rec.outputs.from }} → $VERSION"
+          git push -q -f -u origin "$br"
+          url=$(gh pr create --head "$br" --title "Promote $APP to ${TARGET^^}: $VERSION" \
+            --body "Requested via the release API. ${TARGET^^} \`${{ steps.rec.outputs.from }}\` → \`$VERSION\`. Approve to release.")
+          echo "### Promotion PR: $url" >> "$GITHUB_STEP_SUMMARY"
