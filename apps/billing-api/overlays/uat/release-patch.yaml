@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: billing-api}
+spec:
+  template:
+    spec:
+      containers:
+        - name: billing-api
+          env:
+            - {name: FEATURE_FLAGS, value: none}
