@@ -1,6 +1,6 @@
 # Release API: "version X of app Y is built, tested and ready for environment Z".
 #
-# This is the single hand-off from CI (anyone's: GitHub Actions, Azure DevOps, Jenkins) or Octopus to the platform.
+# This is the single hand-off from CI (anyone's: GitHub Actions, Azure DevOps, Jenkins) to the platform.
 # CI never edits this repo; it calls this endpoint as its LAST step, after build + tests pass:
 #
 #   curl -X POST https://api.github.com/repos/<org>/platform-gitops/dispatches \
@@ -10,7 +10,7 @@
 # What the platform does with it:
 #   1. Checks the app is onboarded and the image really exists in ACR (no "ready" without an artifact)
 #   2. SIT  → updates the release record directly; Argo CD deploys within ~30s
-#      UAT+ → opens a promotion PR that needs approval (the step Octopus drives)
+#      UAT+ → opens a promotion PR that needs approval (the release manager's step)
 name: release
 run-name: "release ${{ github.event.client_payload.app || inputs.app }} ${{ github.event.client_payload.version || inputs.version }} → ${{ github.event.client_payload.env || inputs.env || 'sit' }}"
 on:

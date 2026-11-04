@@ -3,7 +3,7 @@
 #   push to main → build → test → push image <sha7> → call the platform's release API → Argo CD deploys to SIT
 #
 # CI owns build and test. It never edits platform-gitops: its last step is one call saying
-# "version <sha7> is ready". Any CI system (e.g. Azure DevOps) or Octopus can make the same call.
+# "version <sha7> is ready". Any CI system (e.g. Azure DevOps) can make the same call.
 name: ci
 on:
   push:

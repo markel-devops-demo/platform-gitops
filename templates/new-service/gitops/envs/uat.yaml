@@ -1,5 +1,5 @@
 # Release record for UAT: what runs here.
-#   image.tag     set by the release API when a build is ready (your pipeline or Octopus calls it)
+#   image.tag     set by the release API when a build is ready (your CI pipeline calls it)
 #   chartVersion  bumped by a PR when the app adopts a new golden-path version (SIT first, then UAT)
 chartVersion: "1.0.0"
 environment: uat
