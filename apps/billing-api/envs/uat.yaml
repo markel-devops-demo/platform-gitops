@@ -4,4 +4,4 @@
 chartVersion: "1.0.0"
 environment: uat
 image:
-  tag: "bootstrap"
+  tag: "d9e4b0c"

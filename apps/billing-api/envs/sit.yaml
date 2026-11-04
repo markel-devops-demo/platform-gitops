@@ -4,4 +4,4 @@
 chartVersion: "1.0.0"
 environment: sit
 image:
-  tag: "bootstrap"
+  tag: "d9e4b0c"
