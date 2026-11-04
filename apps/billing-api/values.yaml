@@ -1,0 +1,11 @@
+# Onboarding record for billing-api: generated once by the Developer Hub golden-path template.
+# This is the whole app-specific config. Everything else comes from the shared chart (charts/golden-service).
+# To change a value later: open a PR on this file (Developer Hub → billing-api → "Edit onboarding values").
+name: billing-api
+owner: claims-team
+drTier: bronze
+dataClass: internal
+hostname: billing-api
+appsDomain: apps.nd.azure-na.mobb.cloud
+image:
+  repository: nddemodevops2dcfe2.azurecr.io/billing-api
